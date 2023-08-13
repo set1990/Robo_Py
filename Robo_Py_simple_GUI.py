@@ -20,12 +20,6 @@ NewSpinner = []
 
 def MyInput(key): return psg.I('', size=(3, 1), key=key, pad=(0, 2))
 
-layoutadres = [[psg.T('Your typed chars appear here:'), psg.T('', key='-OUTPUT-')],
-          [MyInput(0), psg.T('.'), MyInput(1), psg.T('.'),
-           MyInput(2), psg.T('.'), MyInput(3)],
-          [psg.B('Ok', key='-OK-', bind_return_key=True), psg.B('Exit'), psg.B('CALL')]]
-
-
 layout = [
     [psg.Menu([['Ustawienia',['Adres']]])],
     [psg.Button('', image_data=toggle_btn_off, key='SL1_ON', button_color=(psg.theme_background_color(), psg.theme_background_color()), border_width=0),
@@ -69,7 +63,8 @@ layout = [
     [psg.Button('Odczyt \n ADC',size=(10, 2), font='Any 15', key='RADC'),
      psg.Button('Odczyt \n LIS3MDL',size=(12, 2), font='Any 15', key='RLIS3MDL'),
      psg.Button('Odczyt listy',size=(12, 2), font='Any 15', key='RLIST'),
-     psg.Column([[psg.Checkbox('PAD', font='Any 12', enable_events=True, key='PAD', disabled=True),LEDIndicator('PAD_connect')]])],
+     psg.Column([[psg.Text('     NET: ', font='Any 12'),LEDIndicator('Network_connect')],
+                 [psg.Checkbox('PAD', font='Any 12', enable_events=True, key='PAD', disabled=True),LEDIndicator('PAD_connect')]])],
 
     [psg.Text('  LIS3MDL : ', font='Any 15')],
     [psg.Text('X:', font='Any 15'), psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLx_T'),
@@ -86,6 +81,99 @@ layout = [
     [psg.Multiline( echo_stdout_stderr=True, reroute_stdout=True, autoscroll=True, background_color='black', text_color='white',
                     key='-MLINE-', expand_y=True, expand_x=True, disabled=True, write_only=True)]
 ]
+
+
+def Check_net():
+    if(robo.ping() == 0):
+        SetLED(window, 'Network_connect', 'red')
+    else:
+        SetLED(window, 'Network_connect', 'green')
+    return
+
+def New_address():
+    layoutadres = [[psg.T('Your typed chars appear here:'), psg.T('', key='-OUTPUT-')],
+                   [MyInput(0), psg.T('.'), MyInput(1), psg.T('.'),
+                    MyInput(2), psg.T('.'), MyInput(3)],
+                   [psg.B('Ok', key='-OK-', bind_return_key=True), psg.B('Exit'), psg.B('Default')]]
+    Adres_win = psg.Window("Adres", layoutadres, return_keyboard_events=True)
+    Adres_win.finalize()
+    while True:
+        eventadres, values = Adres_win.read()
+        if eventadres == "Exit" or eventadres == psg.WIN_CLOSED:
+            break
+
+        elem = Adres_win.find_element_with_focus()
+
+        if eventadres == 'Default':
+            elem.update(192)
+            elem = Adres_win[elem.key + 1]
+            elem.set_focus()
+            elem.update(168)
+            elem = Adres_win[elem.key + 1]
+            elem.set_focus()
+            elem.update(1)
+            elem = Adres_win[elem.key + 1]
+            elem.set_focus()
+            elem.update(150)
+            Adres_win['-OK-'].set_focus()
+            continue
+
+        if elem is not None:
+            key = elem.Key
+            # get value of input field that has focus
+            if key != '-OK-':
+                value = values[key]
+                if eventadres == '.' and key != '-OK-':  # if a ., then advance to next field
+                    elem.update(value[:-1])
+                    value = value[:-1]
+                    next_elem = Adres_win[key + 1]
+                    next_elem.set_focus()
+
+                elif eventadres not in '0123456789':
+                    elem.update(value[:-1])
+
+                elif len(value) > 2 and key < 3:  # if 2 digits typed in, move on to next input
+                    next_elem = Adres_win[key + 1]
+                    next_elem.set_focus()
+
+                elif len(value) > 2 and key == 3:
+                    Adres_win['-OK-'].set_focus()
+            else:
+                new_addres = '{}.{}.{}.{}'.format(*values.values())
+                robo.close()
+                robo.init(RoboAddressIP=new_addres, RoboPort=5001)
+                Check_net()
+                break
+    Adres_win.close()
+    return
+
+def SL_en(sl_en, name, num):
+    sl_en = not sl_en
+    if sl_en:
+        data = robo.PD_enable_servo(num)
+    else:
+        data = robo.PD_disable_servo(num)
+    if (data == 0):
+        sl_en = not sl_en
+        SetLED(window, 'Network_connect', 'red')
+    else:
+        window[name].update(image_data=toggle_btn_on if sl_en else toggle_btn_off)
+        SetLED(window, 'Network_connect', 'green')
+    return sl_en
+
+def SL_in(sl_en, name, num):
+    sl_en = not sl_en
+    if sl_en:
+        data = robo.PD_enable_servo(num)
+    else:
+        data = robo.PD_disable_servo(num)
+    if (data == 0):
+        sl_en = not sl_en
+        SetLED(window, 'Network_connect', 'red')
+    else:
+        window[name].update(image_data=toggle_btn_on if sl_en else toggle_btn_off)
+        SetLED(window, 'Network_connect', 'green')
+    return sl_en
 
 SL1_enable = False
 SL2_enable = False
@@ -107,8 +195,10 @@ SL4_new = False
 SL5_new = False
 
 robo.init(RoboAddressIP='192.168.1.150', RoboPort=5001)
+robo.Print_answer_timeout_FLAG = True
 window = psg.Window('ROBO', layout, size=(715, 780))
 window.finalize()
+Check_net()
 SetLED(window, 'PAD_connect', 'red')
 
 while True:
@@ -118,64 +208,10 @@ while True:
       break
 
    elif event == 'Adres':
-       Adres_win = psg.Window("Adres", layoutadres, return_keyboard_events=True)
-       Adres_win.finalize()
-       while True:
-           eventadres, values = Adres_win.read()
-           if eventadres == "Exit" or eventadres == psg.WIN_CLOSED:
-               break
-
-           elem = Adres_win.find_element_with_focus()
-
-           if eventadres == 'CALL':
-               elem.update(192)
-               elem = Adres_win[elem.key + 1]
-               elem.set_focus()
-               elem.update(168)
-               elem = Adres_win[elem.key + 1]
-               elem.set_focus()
-               elem.update(1)
-               elem = Adres_win[elem.key + 1]
-               elem.set_focus()
-               elem.update(150)
-               Adres_win['-OK-'].set_focus()
-               continue
-
-           if elem is not None:
-               key = elem.Key
-               # get value of input field that has focus
-               if key != '-OK-':
-                   value = values[key]
-                   if eventadres == '.' and key != '-OK-':  # if a ., then advance to next field
-                       elem.update(value[:-1])
-                       value = value[:-1]
-                       next_elem = Adres_win[key + 1]
-                       next_elem.set_focus()
-
-                   elif eventadres not in '0123456789':
-                       elem.update(value[:-1])
-
-                   elif len(value) > 2 and key < 3:  # if 2 digits typed in, move on to next input
-                       next_elem = Adres_win[key + 1]
-                       next_elem.set_focus()
-
-                   elif len(value) > 2 and key == 3:
-                       Adres_win['-OK-'].set_focus()
-               else:
-                   new_addres = '{}.{}.{}.{}'.format(*values.values())
-                   print(new_addres)
-                   # robo.init(RoboAddressIP=new_addres, RoboPort=5001)
-                   break
-
-       Adres_win.close()
+       New_address()
 
    elif event == 'SL1_ON':  # if the graphical button that changes images
-       SL1_enable = not SL1_enable
-       if SL1_enable:
-           robo.PD_enable_servo(0)
-       else:
-           robo.PD_disable_servo(0)
-       window['SL1_ON'].update(image_data=toggle_btn_on if SL1_enable else toggle_btn_off)
+       SL1_enable = SL_en(SL1_enable, 'SL1_ON', 0)
 
    elif event == 'SL1_in':
        SL1_value = float(values['SL1_in'])
@@ -197,12 +233,7 @@ while True:
        window['SL1_in'].update(format(SL1_value, '.1f'))
 
    elif event == 'SL2_ON':  # if the graphical button that changes images
-       SL2_enable = not SL2_enable
-       if SL2_enable:
-           robo.PD_enable_servo(1)
-       else:
-           robo.PD_disable_servo(1)
-       window['SL2_ON'].update(image_data=toggle_btn_on if SL2_enable else toggle_btn_off)
+       SL2_enable = SL_en(SL2_enable, 'SL2_ON', 1)
 
    elif event == 'SL2_in':
        SL2_value = float(values['SL2_in'])
@@ -224,12 +255,7 @@ while True:
        window['SL2_in'].update(format(SL2_value, '.1f'))
 
    elif event == 'SL3_ON':  # if the graphical button that changes images
-       SL3_enable = not SL3_enable
-       if SL3_enable:
-           robo.PD_enable_servo(2)
-       else:
-           robo.PD_disable_servo(2)
-       window['SL3_ON'].update(image_data=toggle_btn_on if SL3_enable else toggle_btn_off)
+       SL3_enable = SL_en(SL3_enable, 'SL3_ON', 2)
 
    elif event == 'SL3_in':
        SL3_value = float(values['SL3_in'])
@@ -251,12 +277,7 @@ while True:
        window['SL3_in'].update(format(SL3_value, '.1f'))
 
    elif event == 'SL4_ON':  # if the graphical button that changes images
-       SL4_enable = not SL4_enable
-       if SL4_enable:
-           robo.PD_enable_servo(3)
-       else:
-           robo.PD_disable_servo(3)
-       window['SL4_ON'].update(image_data=toggle_btn_on if SL4_enable else toggle_btn_off)
+       SL4_enable = SL_en(SL4_enable, 'SL4_ON', 3)
 
    elif event == 'SL4_in':
        SL4_value = float(values['SL4_in'])
@@ -278,12 +299,7 @@ while True:
        window['SL4_in'].update(format(SL4_value, '.1f'))
 
    elif event == 'SL5_ON':  # if the graphical button that changes images
-       SL5_enable = not SL5_enable
-       if SL5_enable:
-           robo.PD_enable_servo(4)
-       else:
-           robo.PD_disable_servo(4)
-       window['SL5_ON'].update(image_data=toggle_btn_on if SL5_enable else toggle_btn_off)
+       SL5_enable = SL_en(SL5_enable, 'SL5_ON', 5)
 
    elif event == 'SL5_in':
        SL5_value = float(values['SL5_in'])
@@ -306,44 +322,64 @@ while True:
 
    elif event == 'SL6_ON':  # if the graphical button that changes images
        SL6_enable = not SL6_enable
-       window['SL6_ON'].update(image_data=toggle_btn_on if SL6_enable else toggle_btn_off)
+       if (robo.gripper(SL6_enable) == 0):
+           SL6_enable = not SL6_enable
+           SetLED(window, 'Network_connect', 'red')
+       else:
+           window['SL6_ON'].update(image_data=toggle_btn_on if SL6_enable else toggle_btn_off)
+           SetLED(window, 'Network_connect', 'green')
+
 
    elif event == 'ADDSTEP':
        window[event].set_cursor("watch")
+       data = None
        if SL1_new:
-           robo.add_step(0, int(SL1_value*10))
+           data=robo.add_step(0, int(SL1_value*10))
            sleep(0.2)
        if SL2_new:
-           robo.add_step(1, int(SL2_value * 10))
+           data=robo.add_step(1, int(SL2_value * 10))
            sleep(0.2)
        if SL3_new:
-           robo.add_step(2, int(SL3_value * 10))
+           data=robo.add_step(2, int(SL3_value * 10))
            sleep(0.2)
        if SL4_new:
-           robo.add_step(3, int(SL4_value * 10))
+           data=robo.add_step(3, int(SL4_value * 10))
            sleep(0.2)
        if SL5_new:
-           robo.add_step(4, int(SL5_value * 10))
+           data=robo.add_step(4, int(SL5_value * 10))
            sleep(0.2)
+       if (data==0): SetLED(window, 'Network_connect', 'red')
+       elif(data!=None): SetLED(window, 'Network_connect', 'green')
        window[event].set_cursor("arrow")
 
    elif event == 'RUN':
        window[event].set_cursor("watch")
-       robo.run_progrma()
+       data = robo.run_progrma()
+       if (data==0): SetLED(window, 'Network_connect', 'red')
+       else: SetLED(window, 'Network_connect', 'green')
        window[event].set_cursor("arrow")
 
    elif event == 'CLIST':
-       robo.clear_list()
+       data = robo.clear_list()
+       if (data==0): SetLED(window, 'Network_connect', 'red')
+       else: SetLED(window, 'Network_connect', 'green')
 
    elif event == 'RLIST':
        window[event].set_cursor("watch")
        dataStep = robo.read_list()
-       print(dataStep)
+       if (dataStep != 0):
+            for i in range(0,len(dataStep),3):
+                if (dataStep[i]==9):
+                    print("Lista pusta")
+                else:
+                    print("num:{:d} val={:d}".format(dataStep[i], (dataStep[i+1] + (dataStep[i+2]*256))))
+       if (dataStep==0): SetLED(window, 'Network_connect', 'red')
+       else: SetLED(window, 'Network_connect', 'green')
        window[event].set_cursor("arrow")
 
    if (event == 'SENDSTEP'):
        window['SENDSTEP'].set_cursor("watch")
-       robo.LIS3MDL_Triger()
+       data = None
        if SL1_new:
            robo.PD_set_value(0, int(SL1_value * 10))
            SL1_new = False
@@ -357,8 +393,10 @@ while True:
            robo.PD_set_value(3, int(SL4_value * 10))
            SL4_new = False
        if SL5_new:
-           robo.PD_set_value(4, int(SL5_value * 10))
-           SL4_new = False
+           robo.PD_set_value(5, int(SL5_value * 10))
+           SL5_new = False
+       if (data==0): SetLED(window, 'Network_connect', 'red')
+       elif(data!=None): SetLED(window, 'Network_connect', 'green')
        window['SENDSTEP'].set_cursor("arrow")
 
    if (event == 'RADC'):
@@ -370,6 +408,8 @@ while True:
             window['ADC3_T'].update(format((dataADC[4] + (dataADC[5] * 256)), '.1f'))
             window['ADC4_T'].update(format((dataADC[6] + (dataADC[7] * 256)), '.1f'))
             window['ADC5_T'].update(format((dataADC[8] + (dataADC[9] * 256)), '.1f'))
+       if (dataADC==0): SetLED(window, 'Network_connect', 'red')
+       else: SetLED(window, 'Network_connect', 'green')
        window['RADC'].set_cursor("arrow")
 
    if (event == 'RLIS3MDL'):
@@ -381,6 +421,10 @@ while True:
            window['LIS3MDLx_T'].update(format((dataLIS3MDL[1] + (dataLIS3MDL[2] * 256)), '.1f'))
            window['LIS3MDLy_T'].update(format((dataLIS3MDL[3] + (dataLIS3MDL[4] * 256)), '.1f'))
            window['LIS3MDLz_T'].update(format((dataLIS3MDL[5] + (dataLIS3MDL[6] * 256)), '.1f'))
+       if (dataLIS3MDL == 0):
+           SetLED(window, 'Network_connect', 'red')
+       else:
+           SetLED(window, 'Network_connect', 'green')
        window['RLIS3MDL'].set_cursor("arrow")
 
 window.close()
