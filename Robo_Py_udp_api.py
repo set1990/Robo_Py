@@ -97,7 +97,7 @@ def gripper(state):
             sleep(0.1)
             data = PD_set_value(5, 1000)
     else:
-        data = PD_set_value(5, 800)
+        data = PD_set_value(5, 500)
         if(data!=0):
             sleep(0.1)
             data = PD_disable_servo(5)
