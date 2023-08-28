@@ -19,7 +19,6 @@ def wait_for_answer():
             break
     return data
 
-
 def init(RoboAddressIP: str, RoboPort: int ,MyAddressIP = "", MyPort = 20001):
     global RoboAddressPort
     global UDPClientSocket
@@ -43,7 +42,6 @@ def ADC_read():
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
 
-
 def add_step(servo, value):
     servo = servo.to_bytes(length=1, byteorder='big')
     value = value.to_bytes(length=2, byteorder='big')
@@ -51,18 +49,15 @@ def add_step(servo, value):
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
 
-
 def clear_list():
     msg = 0x07.to_bytes(length=4, byteorder='little')
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
 
-
 def LIS3MDL_Triger():
     msg = 0x09.to_bytes(length=4, byteorder='little')
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
-
 
 def LIS3MDL_Read():
     msg = 0x0A.to_bytes(length=4, byteorder='little')
@@ -75,13 +70,11 @@ def PD_disable_servo(servo):
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
 
-
 def PD_enable_servo(servo):
     servo = servo.to_bytes(length=3, byteorder='little')
     msg = 0x03.to_bytes(length=1, byteorder='little') + servo
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
-
 
 def PD_set_value(servo, value):
     servo = servo.to_bytes(length=1, byteorder='big')
@@ -107,7 +100,6 @@ def read_list():
     msg = 0x08.to_bytes(length=4, byteorder='little')
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
-
 
 def run_progrma():
     msg = 0x05.to_bytes(length=4, byteorder='little')

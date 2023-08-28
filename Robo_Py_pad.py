@@ -27,6 +27,7 @@ def thread_function():
                 hendler("LM")
             elif (joystick_nr.get_button(0)):
                 hendler("gripper_on_off")
+                sleep(1)
             elif (joystick_nr.get_button(8)):
                 hendler("enable_disable_l")
             elif (joystick_nr.get_button(9)):
@@ -44,13 +45,11 @@ def thread_function():
             elif (joystick_nr.get_axis(3) > 0.1) or (joystick_nr.get_axis(3) < (-0.1)):
                 hendler("SL_val_r", joystick_nr.get_axis(3)*2)
             sleep(0.1)
-
         joystick_nr.quit()
     else:
         hendler("red_led")
         print("PAD Timeout")
     return
-
 
 def start():
     global running
@@ -58,9 +57,7 @@ def start():
     running = True
     thread = threading.Thread(target=thread_function)
     thread.start()
-
     return thread
-
 
 def stop():
     global running
