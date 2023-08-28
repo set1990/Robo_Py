@@ -2,6 +2,15 @@ import threading
 from pygame import joystick
 from time import sleep
 
+running = False
+
+def PAD_hendler(funk):
+    def wrap():
+        global hendler
+        hendler = funk
+        return
+    wrap()
+    return
 
 def thread_function():
     global running
@@ -43,12 +52,10 @@ def thread_function():
     return
 
 
-def start(input):
-    global hendler
+def start():
     global running
     joystick.init()
     running = True
-    hendler = input
     thread = threading.Thread(target=thread_function)
     thread.start()
 
