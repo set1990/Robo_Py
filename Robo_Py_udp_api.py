@@ -64,6 +64,16 @@ def LIS3MDL_Read():
     UDPClientSocket.sendto(msg, RoboAddressPort)
     return wait_for_answer()
 
+def LSM6DS33_Triger():
+    msg = 0x0C.to_bytes(length=4, byteorder='little')
+    UDPClientSocket.sendto(msg, RoboAddressPort)
+    return wait_for_answer()
+
+def LSM6DS33_Read():
+    msg = 0x0D.to_bytes(length=4, byteorder='little')
+    UDPClientSocket.sendto(msg, RoboAddressPort)
+    return wait_for_answer()
+
 def PD_disable_servo(servo):
     servo = servo.to_bytes(length=3, byteorder='little')
     msg = 0x04.to_bytes(length=1, byteorder='little') + servo

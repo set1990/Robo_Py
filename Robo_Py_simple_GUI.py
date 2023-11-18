@@ -1,7 +1,10 @@
 import PySimpleGUI as psg
 import Robo_Py_udp_api as robo
 import Robo_Py_pad as pad
+from numpy import int16
 from time import sleep
+
+net_status = False
 
 def LEDIndicator(key=None, radius=30):
     return psg.Graph(canvas_size=(radius, radius),
@@ -15,10 +18,13 @@ def SetLED(window, key, color):
     graph.draw_circle((0, 0), 12, fill_color=color, line_color=color)
 
 def Check_net():
+    global net_status
     if (robo.ping() == 0):
         SetLED(window, 'Network_connect', 'red')
+        net_status = False
     else:
         SetLED(window, 'Network_connect', 'green')
+        net_status = True
     return
 
 def New_address():
@@ -145,17 +151,25 @@ layout = [
 
     [psg.Button('Odczyt \n ADC', size=(10, 2), font='Any 15', key='RADC'),
      psg.Button('Odczyt \n LIS3MDL', size=(12, 2), font='Any 15', key='RLIS3MDL'),
-     psg.Button('Odczyt listy', size=(12, 2), font='Any 15', key='RLIST'),
+     psg.Button('Odczyt \n LSM6DS33', size=(12, 2), font='Any 15', key='RLILSM6'),
+     psg.Button('Odczyt listy', size=(12, 2), font='Any 15', key='RLIST')],
+
+    [psg.Column([[psg.Text('                               X:', font='Any 15'), psg.Text('          Y:', font='Any 15'), psg.Text('         Z:', font='Any 15'),],
+                 [psg.Text('     LIS3MDL :  ', font='Any 15'),
+                  psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLx_T'),
+                  psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLy_T'),
+                  psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLz_T')],
+
+                 [psg.Text('  LSM6DS33 : ', font='Any 15'),
+                  psg.Column([[psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_G_x_T'),
+                               psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_G_y_T'),
+                               psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_G_z_T')],
+                              [psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_A_x_T'),
+                               psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_A_y_T'),
+                               psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LSM6DS33_A_z_T')]])]]),
+     psg.Text(' ', font='Any 15'),
      psg.Column([[psg.Text('     NET: ', font='Any 12'), LEDIndicator('Network_connect')],
                  [psg.Checkbox('PAD', font='Any 12', enable_events=True, key='PAD'), LEDIndicator('PAD_connect')]])],
-
-    [psg.Text('  LIS3MDL : ', font='Any 15')],
-    [psg.Text('X:', font='Any 15'),
-     psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLx_T'),
-     psg.Text('Y:', font='Any 15'),
-     psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLy_T'),
-     psg.Text('Z:', font='Any 15'),
-     psg.Text('50,0', font='Any 15', background_color='black', size=(7, 1), justification='right', key='LIS3MDLz_T')],
 
     [psg.Text('  ADC : ', font='Any 15')],
     [psg.Text('1:', font='Any 15'),
@@ -176,7 +190,7 @@ layout = [
 
 robo.init(RoboAddressIP='192.168.1.150', RoboPort=5001)
 robo.Print_answer_timeout_FLAG = True
-window = psg.Window('ROBO', layout, size=(725, 780))
+window = psg.Window('ROBO', layout, size=(705, 820))
 window.finalize()
 Check_net()
 SetLED(window, 'PAD_connect', 'red')
@@ -268,18 +282,37 @@ def ADC_read():
 
 def Magnetometr_read():
     window['RLIS3MDL'].set_cursor("watch")
-    robo.LIS3MDL_Triger()
+    if not robo.LIS3MDL_Triger(): return
     sleep(1)
     dataLIS3MDL = robo.LIS3MDL_Read()
     if (dataLIS3MDL != 0):
-        window['LIS3MDLx_T'].update(format((dataLIS3MDL[1] + (dataLIS3MDL[2] * 256)), '.1f'))
-        window['LIS3MDLy_T'].update(format((dataLIS3MDL[3] + (dataLIS3MDL[4] * 256)), '.1f'))
-        window['LIS3MDLz_T'].update(format((dataLIS3MDL[5] + (dataLIS3MDL[6] * 256)), '.1f'))
+        window['LIS3MDLx_T'].update(format(int16(dataLIS3MDL[1]|(dataLIS3MDL[2]<<8)), '.1f'))
+        window['LIS3MDLy_T'].update(format(int16(dataLIS3MDL[3]|(dataLIS3MDL[4]<<8)), '.1f'))
+        window['LIS3MDLz_T'].update(format(int16(dataLIS3MDL[5]|(dataLIS3MDL[6]<<8)), '.1f'))
     if (dataLIS3MDL == 0):
         SetLED(window, 'Network_connect', 'red')
     else:
         SetLED(window, 'Network_connect', 'green')
     window['RLIS3MDL'].set_cursor("arrow")
+
+def Gyro_ACC_read():
+    window['RLILSM6'].set_cursor("watch")
+    if not robo.LSM6DS33_Triger(): return
+    sleep(1)
+    dataLSM6DS33 = robo.LSM6DS33_Read()
+    if (dataLSM6DS33 != 0):
+        window['LSM6DS33_G_x_T'].update(format(int16(dataLSM6DS33[1]|(dataLSM6DS33[2]<<8)), '.1f'))
+        window['LSM6DS33_G_y_T'].update(format(int16(dataLSM6DS33[3]|(dataLSM6DS33[4]<<8)), '.1f'))
+        window['LSM6DS33_G_z_T'].update(format(int16(dataLSM6DS33[5]|(dataLSM6DS33[6]<<8)), '.1f'))
+        window['LSM6DS33_A_x_T'].update(format(int16(dataLSM6DS33[7]|(dataLSM6DS33[8]<<8)), '.1f'))
+        window['LSM6DS33_A_y_T'].update(format(int16(dataLSM6DS33[9]|(dataLSM6DS33[10]<<8)), '.1f'))
+        window['LSM6DS33_A_z_T'].update(format(int16(dataLSM6DS33[11]|(dataLSM6DS33[12]<<8)), '.1f'))
+    if (dataLSM6DS33 == 0):
+        SetLED(window, 'Network_connect', 'red')
+    else:
+        SetLED(window, 'Network_connect', 'green')
+    window['RLILSM6'].set_cursor("arrow")
+    pass
 
 def Read_step_list():
     window[event].set_cursor("watch")
@@ -300,7 +333,7 @@ def Send_robo_step():
     window['SENDSTEP'].set_cursor("watch")
     for SL_i in SL_grup:
         if SL_i.new:
-            data = robo.PD_set_value(0, int(SL_i.value * 10))
+            data = robo.PD_set_value(SL_i.number, int(SL_i.value * 10))
             SL_i.new = False
             if data == 0:
                 SetLED(window, 'Network_connect', 'red')
@@ -313,7 +346,7 @@ def Add_step_to_list():
     window[event].set_cursor("watch")
     for SL_i in SL_grup:
         if SL_i.new:
-            data = robo.add_step(0, int(SL_i.value * 10))
+            data = robo.add_step(SL_i.number, int(SL_i.value * 10))
             SL_i.new = False
             if (data == 0):
                 SetLED(window, 'Network_connect', 'red')
@@ -356,6 +389,7 @@ def PAD_hendler(key, value=0):
     match key:
         case "LM":
             Magnetometr_read()
+            Gyro_ACC_read()
         case "ADC":
             ADC_read()
         case "red_led":
@@ -374,10 +408,10 @@ def PAD_hendler(key, value=0):
             l_SL_alloc = SL_alloc_f(l_SL_alloc, r_SL_alloc, '-', 'cyan')
         case "enable_disable_l":
             if l_SL_alloc:
-                SL_grup[l_SL_alloc - 1].enable
+                SL_grup[l_SL_alloc - 1].SL_in()
         case "enable_disable_r":
             if r_SL_alloc:
-                SL_grup[r_SL_alloc - 1].enable
+                SL_grup[r_SL_alloc - 1].SL_in()
         case "SL_val_l":
             if l_SL_alloc:
                 SL_grup[l_SL_alloc - 1].events_hendler("PAD", value)
@@ -391,10 +425,14 @@ def PAD_hendler(key, value=0):
                 SetLED(window, Led, 0)
             r_SL_alloc = l_SL_alloc = 0
 
-while True:
-    event, values = window.read()
+def GUI_main():
+    global event
+    event, values = window.read(timeout=10)
     if event == psg.WIN_CLOSED or event == 'Exit':
-        break
+        if pad.running:
+            pad.stop()
+        window.close()
+        return False
     match event:
         case 'PAD':
             if (values['PAD']):
@@ -427,9 +465,9 @@ while True:
             ADC_read()
         case 'RLIS3MDL':
             Magnetometr_read()
+        case 'RLILSM6':
+            Gyro_ACC_read()
         case _:
             for SL_i in SL_grup:
                 SL_i.events_hendler(event, values)
-if pad.running:
-    pad.stop()
-window.close()
+    return True
